@@ -10,21 +10,11 @@ import java.util.Date;
  */
 @Data
 public class History {
-
+    private Integer id;
     private String openid;
     private String status;
-    private String eyeopen;
-    private String eyeclose;
+    private Integer eyeopen;
+    private Integer eyeclose;
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm")
-    private Date date;
-
-    public History(){}
-
-    public History(String openid, String historyStatus, String historyEyeopen, String historyEyeclose, Date historyTime) {
-        this.openid = openid;
-        this.status = historyStatus;
-        this.eyeopen = historyEyeopen;
-        this.eyeclose = historyEyeclose;
-        this.date = historyTime;
-    }
+    private Date time;
 }

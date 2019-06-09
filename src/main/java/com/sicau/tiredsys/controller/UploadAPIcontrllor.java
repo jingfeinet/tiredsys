@@ -1,10 +1,14 @@
 package com.sicau.tiredsys.controller;
 
+import com.sicau.tiredsys.common.Const;
 import com.sicau.tiredsys.common.ResponseResult;
 import com.sicau.tiredsys.dao.UserDao;
 import com.sicau.tiredsys.entity.History;
+import com.sicau.tiredsys.service.BusinessService;
+import com.sicau.tiredsys.utils.JWTUtil;
 import com.sicau.tiredsys.utils.RequestClient;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -12,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.websocket.EncodeException;
+import javax.websocket.Session;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Timestamp;
@@ -25,11 +31,13 @@ public class UploadAPIcontrllor {
 
 	@Autowired
 	UserDao userDao;
+	@Autowired
+	BusinessService businessService;
 
 	 @RequestMapping("/uploadImageAPI")
 
 	    public ResponseResult uploadImage(@RequestParam(value = "image", required = false) MultipartFile files, HttpServletRequest requesrt,
-										  HttpServletResponse response) throws IOException {
+										  HttpServletResponse response) throws IOException, EncodeException {
 	        String uuid = UUID.randomUUID().toString();
 	        uuid = uuid.replaceAll("-", "");
 	        String realPath = requesrt.getSession().getServletContext().getRealPath("/");
@@ -44,6 +52,7 @@ public class UploadAPIcontrllor {
 	        files.transferTo(file);
 	        HashMap json = new HashMap();
 	        json.put("fileName","upload/images/"+uuid+"."+suffix);
+
 	        return ResponseResult.createBySuccess(json);
 	    }
 	 
@@ -52,32 +61,32 @@ public class UploadAPIcontrllor {
 	    public ResponseResult uploadVideo(@RequestParam(value = "mf", required = false) MultipartFile files,
 									  HttpServletRequest requesrt,
 	                                  HttpServletResponse response
-	 									) throws IOException {
+	 									) throws IOException, EncodeException {
 	      HashMap json = new HashMap();
+             String openid = JWTUtil.getTokenOpenid(requesrt);
+             System.out.println(openid);
 
-	        response.setContentType("application/json;charset=utf-8;");
 	        if(files==null){
-	            json.put("messqge","message");
-	            return ResponseResult.createBySuccess(json);
+	            return ResponseResult.createByErrorMessage("文件异常");
 	        }
-//         String	 	 current_user = "方圆几里";
-	        String uuid = UUID.randomUUID().toString();
-	        uuid = uuid.replaceAll("-", "");
-	        String realPath = requesrt.getSession().getServletContext().getRealPath("/");
-	        System.out.print(realPath);
-	        long size = files.getSize();
-	        String fileName = files.getOriginalFilename();
-	        String suffix = fileName.substring(fileName.length() - 3);
-	        String path = "/static/upload/videos";
 
-	        File file = new File(realPath+path,uuid+"."+suffix);
+	        String fileName = files.getOriginalFilename();
+	        String[] names = fileName.split("\\.");
+	        //最后一个点分割的才是后缀名
+	        String suffix = names[names.length-1];
+
+	        File dir = new File(Const.UPLOAD_REAL_PATH);
+	        if (!dir.exists()){
+	        	dir.mkdirs();
+			}
+	        File file = new File(Const.UPLOAD_REAL_PATH,openid+"."+suffix);
 	        if(!file.exists()){
 	            file.createNewFile();
 	        }
 	        files.transferTo(file);
-	        String imgPath = null;
-	        System.out.print(imgPath);
-	        json.put("fileName","/static/upload/videos/"+uuid+"."+suffix);
+	        String newFileName = Const.UPLOAD_REAL_PATH+"/"+openid+"."+suffix;
+	        //异步处理video识别
+		   businessService.dealVideo(openid,newFileName);
 	       return ResponseResult.createBySuccess(json);
 	    }
 
@@ -102,13 +111,9 @@ public class UploadAPIcontrllor {
 		}else if(results[0].equals("\"疲劳\"")) {
 			results[0]="疲劳";
 		}
-		String current_user = request.getParameter("user");
-		System.out.print(current_user);
 
-		Date date=new Date();     //获取一个Date对象
-		Timestamp timeStamp = new Timestamp(date.getTime());
-		String statement = "com.bitongyun.userAPIMapper.addUserAPI";
-		userDao.addUserApi(new History(current_user, results[0], results[1], results[2], timeStamp));
+		History history = new History();
+		userDao.addUserApi(history);
 		json.put("message",results);
 		return ResponseResult.createBySuccess(json);
 	}

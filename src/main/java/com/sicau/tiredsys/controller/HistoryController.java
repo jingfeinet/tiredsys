@@ -27,7 +27,8 @@ public class HistoryController {
 	@Autowired
 	HistoryService historyService;
 
-	@RequestMapping("showList")
+	@ApiOperation(value = "1" )
+	@RequestMapping("/ttt")
 	@ResponseBody
 	public ResponseResult showVideo(@RequestParam(value="user") String user_name) {
 //		user_name = "123";
@@ -47,7 +48,7 @@ public class HistoryController {
 	})
 	@GetMapping("/history")
 	public ResponseResult showHistory(HttpServletRequest request,Integer offset,Integer limit){
-       String openid = JWTUtil.getTokenOpenid(request);
+        String openid = JWTUtil.getTokenOpenid(request);
         if (offset==null||limit==null) //为空默认查最新的记录
        	return ResponseResult.createBySuccess(historyService.getLastHistory(openid));
 		ArrayList<History> list = historyService.getHistory(offset,limit,openid);

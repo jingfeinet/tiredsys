@@ -8,15 +8,21 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
 import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 
 import com.alibaba.druid.support.json.JSONUtils;
+import com.sicau.tiredsys.utils.JWTUtil;
 import com.sicau.tiredsys.utils.RequestClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 
@@ -25,10 +31,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class WebSocketServer {
 
+    @Autowired
+    RedisTemplate<String, Object> redisTemplate;
     //静态变量，用来记录当前在线连接数。应该把它设计成线程安全的。
     private static int onlineCount = 0;
     //concurrent包的线程安全Set，用来存放每个客户端对应的MyWebSocket对象。
     private static CopyOnWriteArraySet<WebSocketServer> webSocketSet = new CopyOnWriteArraySet<WebSocketServer>();
+    private static ConcurrentHashMap<String,String> sessionMap = new ConcurrentHashMap();
 
     //与某个客户端的连接会话，需要通过它来给客户端发送数据
     private Session session;
@@ -45,13 +54,16 @@ public class WebSocketServer {
     @OnOpen
     public void onOpen(Session session, @PathParam("sid") String sid) throws EncodeException {
         this.session = session;
+        String sessionId =  session.getId();
         webSocketSet.add(this);     //加入set中
         addOnlineCount();           //在线数加1
         System.out.println("有新窗口开始监听:" + sid + ",当前在线人数为" + getOnlineCount());
+    //        redisTemplate.opsForHash().put(Const.WEB_SOCKET,sessionId,sid);
+        //sessionMap.put(sessionId,sid);
         this.sid = sid;
         try {
             sendMessage(ResponseResult.createBySuccessMessage("连接成功"));
-            sendMessage(ResponseResult.createBySuccess("消息推送"));
+            sendMessage(ResponseResult.createBySuccess(sessionId));
         } catch (IOException e) {
            e.printStackTrace();
         }
@@ -78,7 +90,25 @@ public class WebSocketServer {
         //群发消息
         for (WebSocketServer item : webSocketSet) {
             try {
-                item.sendMessage(ResponseResult.createBySuccess(message));
+                if (item.session == session){
+                    item.sendMessage(ResponseResult.createBySuccess(message));
+                    if (message.indexOf("token=")>=0){
+                        //说明发送的是token信息
+                        //将sessionId与openid匹配
+                        String sessionId = session.getId();
+                        String token = message.split("token=")[1];
+                        String openid;
+                        try{
+                           openid =  JWTUtil.getOpenid(token);
+                           sessionMap.put(openid,sessionId);
+                        }catch (Exception e){
+                            item.sendMessage(ResponseResult.createByErrorMessage("token有错"));
+                        }
+
+                    }
+                    break;
+                }
+
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -98,8 +128,21 @@ public class WebSocketServer {
     /**
      * 实现服务器主动推送
      */
-    public void sendMessage(Object message) throws IOException, EncodeException {
-        this.session.getBasicRemote().sendObject(message);
+    public  void sendMessage(Object message) throws IOException, EncodeException {
+        session.getBasicRemote().sendObject(message);
+    }
+
+    public void sendMessageByOpenid(String openid,Object object) throws IOException, EncodeException {
+        String sessionId = sessionMap.get(openid);
+        if (sessionId==null){
+            //异常则什么都不做
+        }else {
+            for(WebSocketServer item:webSocketSet){
+                if (item.session.getId()==sessionId){
+                    item.sendMessage(ResponseResult.createBySuccess("msg",object));
+                }
+            }
+        }
     }
 
 
@@ -150,6 +193,10 @@ public class WebSocketServer {
 
     public static synchronized void subOnlineCount() {
         WebSocketServer.onlineCount--;
+    }
+
+    public String getSessionId(String openid){
+        return sessionMap.get(openid);
     }
 }
 

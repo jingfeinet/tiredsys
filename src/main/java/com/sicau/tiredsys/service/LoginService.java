@@ -38,6 +38,7 @@ public class LoginService {
         if (openid!=null){
            User user =  userDao.getUserByOpenId(openid);
            if (user==null){
+               user = new User();
                user.setOpenid(openid);
                user.setRole(Const.INIT_ROLE);
                user.setFingerprint(0);//默认关闭指纹解锁

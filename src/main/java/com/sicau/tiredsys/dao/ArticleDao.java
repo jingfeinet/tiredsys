@@ -13,7 +13,7 @@ import java.util.List;
 @Repository
 public interface ArticleDao {
     String TABLE_NAME = "article";
-    String INSERT_FIELDS = "title, content, created_time, user_name, openid";
+    String INSERT_FIELDS = "title,brief, content, created_time, user_name, openid,avatar_url";
     String SELECT_FIELDS = " * ";
 
     @Insert({"insert into " + TABLE_NAME + " (" + INSERT_FIELDS + ") values(#{title}, " +

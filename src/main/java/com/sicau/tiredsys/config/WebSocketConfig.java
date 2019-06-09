@@ -9,7 +9,7 @@ import org.springframework.web.socket.server.standard.ServerEndpointExporter;
  */
 @Configuration
 public class WebSocketConfig {
-    @Bean
+    @Bean    //不注释会报@ServerEndpoint注解无法注册
     public ServerEndpointExporter serverEndpointExporter() {
         return new ServerEndpointExporter();
     }

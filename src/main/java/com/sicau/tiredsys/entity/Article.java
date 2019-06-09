@@ -12,11 +12,11 @@ import java.util.Date;
  */
 @Data
 public class Article {
-    private String id;
-
+    private Integer id;
     private String title;
+    private String brief;//简介
     private String content;
-    @JsonFormat(pattern = "yyyy-MM-dd")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm")
     private Date createdTime;
     private String userName;
     private String avatarUrl;
